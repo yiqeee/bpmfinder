@@ -1,116 +1,140 @@
+// SoundMaster - BPM & Key Analyzer
 document.addEventListener('DOMContentLoaded', () => {
-    const dropZone = document.getElementById('drop-zone');
+    // DOM Elements
+    const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('file-input');
-    const fileButton = document.getElementById('file-button');
+    const browseBtn = document.getElementById('browse-btn');
     const fileName = document.getElementById('file-name');
-    const loader = document.getElementById('loader');
-    const loaderBar = document.getElementById('loader-bar');
-    const loaderPercentage = document.getElementById('loader-percentage');
+    const loaderSection = document.getElementById('loader-section');
+    const progressBar = document.getElementById('progress-bar');
     const analyzeStatus = document.getElementById('analyze-status');
-    const playerContainer = document.getElementById('player-container');
-    const audio = document.getElementById('audio');
-    const playButton = document.getElementById('play-button');
-    const pauseButton = document.getElementById('pause-button');
+    const percentValue = document.getElementById('percent-value');
+    const playerSection = document.getElementById('player-section');
+    const audioPlayer = document.getElementById('audio-player');
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const trackTitle = document.getElementById('track-title');
     const currentTime = document.getElementById('current-time');
     const totalTime = document.getElementById('total-time');
-    const trackTitle = document.getElementById('track-title');
     const seekbar = document.getElementById('seekbar');
-    const seekbarFill = document.getElementById('seekbar-fill');
+    const seekbarProgress = document.getElementById('seekbar-progress');
     const seekbarThumb = document.getElementById('seekbar-thumb');
-    const results = document.getElementById('results');
-    const resultBpm = document.getElementById('result-bpm');
-    const resultKey = document.getElementById('result-key');
+    const resultsSection = document.getElementById('results-section');
+    const bpmValue = document.getElementById('bpm-value');
+    const keyValue = document.getElementById('key-value');
+    const compatibleKeys = document.getElementById('compatible-keys');
 
+    // Variables
     let audioContext;
     let audioBuffer;
     let isDragging = false;
 
+    // Event Listeners
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        });
+        dropzone.addEventListener(eventName, preventDefaults);
     });
 
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
     ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-            dropZone.classList.add('highlight');
+        dropzone.addEventListener(eventName, () => {
+            dropzone.classList.add('highlight');
         });
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-            dropZone.classList.remove('highlight');
+        dropzone.addEventListener(eventName, () => {
+            dropzone.classList.remove('highlight');
         });
     });
 
-    dropZone.addEventListener('drop', (e) => {
-        const files = e.dataTransfer.files;
-        handleFile(files);
+    dropzone.addEventListener('drop', (e) => {
+        handleFiles(e.dataTransfer.files);
     });
 
-    fileButton.addEventListener('click', () => {
+    browseBtn.addEventListener('click', () => {
         fileInput.click();
     });
 
     fileInput.addEventListener('change', () => {
-        handleFile(fileInput.files);
+        handleFiles(fileInput.files);
     });
 
-    function handleFile(files) {
+    // Handle file upload
+    function handleFiles(files) {
         if (files.length > 0 && files[0].type.includes('audio')) {
             const file = files[0];
             fileName.textContent = file.name;
             trackTitle.textContent = file.name;
 
-            const objectUrl = URL.createObjectURL(file);
-            audio.src = objectUrl;
+            // Reset UI
+            playerSection.classList.add('hidden');
+            resultsSection.classList.add('hidden');
 
-            results.style.display = 'none';
-            playerContainer.style.display = 'none';
-            analyzeAudio(file);
+            // Set source for audio player
+            const objectUrl = URL.createObjectURL(file);
+            audioPlayer.src = objectUrl;
+
+            // Start analysis
+            startAnalysis(file);
         } else {
-            alert('Bitte wähle eine gültige Audiodatei aus.');
+            alert('Bitte wähle eine gültige Audiodatei aus (MP3, WAV, etc.).');
         }
     }
 
-    async function analyzeAudio(file) {
-        loader.style.display = 'block';
-        updateProgress(5, 'Datei wird geladen...');
+    // Start audio analysis
+    async function startAnalysis(file) {
+        loaderSection.classList.remove('hidden');
+        updateProgress(5, 'Audiodatei wird vorbereitet...');
 
         try {
+            // Initialize AudioContext if not already done
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
 
+            // Read file as array buffer
             const arrayBuffer = await readFileAsArrayBuffer(file);
-            updateProgress(20, 'Audio wird dekodiert...');
+            updateProgress(20, 'Dekodiere Audio...');
 
+            // Decode audio data
             audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            updateProgress(40, 'Tempo wird analysiert...');
+            updateProgress(35, 'Analysiere Tempo (BPM)...');
 
+            // Analyze BPM
             const bpm = await analyzeBPM(audioBuffer);
-            resultBpm.textContent = Math.round(bpm);
-            updateProgress(70, 'Tonart wird analysiert...');
+            bpmValue.textContent = Math.round(bpm);
+            updateProgress(70, 'Analysiere Tonart (Key)...');
 
+            // Analyze Key
             const key = await analyzeKey(audioBuffer);
-            resultKey.textContent = key;
+            keyValue.textContent = key;
+            updateProgress(90, 'Berechne kompatible Tonarten...');
+
+            // Get compatible keys
+            const compatibleKeysList = getCompatibleKeys(key);
+            compatibleKeys.textContent = compatibleKeysList;
             updateProgress(100, 'Analyse abgeschlossen!');
 
+            // Show results after a slight delay
             setTimeout(() => {
-                loader.style.display = 'none';
-                playerContainer.style.display = 'block';
-                results.style.display = 'block';
+                loaderSection.classList.add('hidden');
+                playerSection.classList.remove('hidden');
+                resultsSection.classList.remove('hidden');
                 setupPlayer();
-            }, 500);
+            }, 800);
 
         } catch (error) {
-            console.error('Fehler bei der Analyse:', error);
+            console.error('Analysis error:', error);
             alert('Bei der Analyse ist ein Fehler aufgetreten. Bitte versuche es mit einer anderen Datei.');
-            loader.style.display = 'none';
+            loaderSection.classList.add('hidden');
         }
     }
 
+    // Helper Functions
     function readFileAsArrayBuffer(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -120,21 +144,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updateProgress(percent, status) {
-        loaderBar.style.width = `${percent}%`;
-        loaderPercentage.textContent = percent;
-        analyzeStatus.textContent = status;
+    function updateProgress(percent, statusText) {
+        progressBar.style.width = `${percent}%`;
+        percentValue.textContent = percent;
+        analyzeStatus.textContent = statusText;
     }
 
     async function analyzeBPM(audioBuffer) {
         const channelData = audioBuffer.getChannelData(0);
         const sampleRate = audioBuffer.sampleRate;
         
-        // Verwende moderne Web Audio API Algorithmen für genauere Ergebnisse
+        // Use a more advanced BPM detection algorithm
         const frameSize = 1024;
         const hopSize = 512;
         
-        // Energie-basierte Tempo-Erkennung
+        // Energy-based onset detection
         let energies = [];
         for (let i = 0; i < channelData.length - frameSize; i += hopSize) {
             let energy = 0;
@@ -144,10 +168,12 @@ document.addEventListener('DOMContentLoaded', () => {
             energies.push(energy / frameSize);
         }
         
-        // Finde Peaks im Energiesignal
-        const threshold = 1.5 * (energies.reduce((a, b) => a + b, 0) / energies.length);
-        let peaks = [];
+        // Dynamic threshold for peak detection
+        const avgEnergy = energies.reduce((sum, e) => sum + e, 0) / energies.length;
+        const threshold = 1.5 * avgEnergy;
         
+        // Find energy peaks
+        let peaks = [];
         for (let i = 2; i < energies.length - 2; i++) {
             if (energies[i] > threshold && 
                 energies[i] > energies[i-1] && 
@@ -158,16 +184,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Berechne Intervalle zwischen Peaks
+        // Calculate intervals between peaks
         let intervals = [];
         for (let i = 1; i < peaks.length; i++) {
             intervals.push(peaks[i] - peaks[i-1]);
         }
         
-        // Cluster ähnliche Intervalle
+        // Group similar intervals
         let intervalGroups = {};
         intervals.forEach(interval => {
-            // Runde auf nächste 5
+            // Round to the nearest 5
             const roundedInterval = Math.round(interval / 5) * 5;
             
             if (!intervalGroups[roundedInterval]) {
@@ -176,23 +202,23 @@ document.addEventListener('DOMContentLoaded', () => {
             intervalGroups[roundedInterval]++;
         });
         
-        // Finde das häufigste Intervall
+        // Find the most common interval
         let maxCount = 0;
-        let mostFrequentInterval = 0;
+        let mostCommonInterval = 0;
         
         for (const interval in intervalGroups) {
             if (intervalGroups[interval] > maxCount) {
                 maxCount = intervalGroups[interval];
-                mostFrequentInterval = parseInt(interval);
+                mostCommonInterval = parseInt(interval);
             }
         }
         
-        // Berechne BPM aus dem häufigsten Intervall
+        // Convert interval to BPM
         const secondsPerFrame = hopSize / sampleRate;
-        const intervalInSeconds = mostFrequentInterval * secondsPerFrame;
+        const intervalInSeconds = mostCommonInterval * secondsPerFrame;
         let bpm = 60 / intervalInSeconds;
         
-        // Normalisiere auf typischen BPM-Bereich
+        // Normalize to typical BPM range
         while (bpm > 180) bpm /= 2;
         while (bpm < 60) bpm *= 2;
         
@@ -203,38 +229,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const sampleRate = audioBuffer.sampleRate;
         const channelData = audioBuffer.getChannelData(0);
         
-        // Chromagram erstellen (12 Noten)
+        // Chromagram calculation (12 notes)
         const noteStrengths = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         
-        // Einfache FFT-basierte Analyse
+        // FFT-based analysis
         const fftSize = 4096;
         const fft = new Float32Array(fftSize);
         
-        // Verarbeite das Signal in Blöcken
+        // Process signal in blocks
         const blockSize = 16384;
         const numBlocks = Math.floor(channelData.length / blockSize);
         
         for (let block = 0; block < numBlocks; block++) {
             const start = block * blockSize;
             
-            // Fensterfunktion anwenden und FFT füllen
+            // Apply window function and fill FFT buffer
             for (let i = 0; i < fftSize && i + start < channelData.length; i++) {
-                // Hanning-Fenster
+                // Hanning window
                 const window = 0.5 * (1 - Math.cos(2 * Math.PI * i / fftSize));
                 fft[i] = channelData[start + i] * window;
             }
             
-            // Einfache DFT für Frequenzanalyse
+            // Simplified DFT for frequency analysis
             for (let bin = 0; bin < 512; bin++) {
                 const freq = bin * sampleRate / fftSize;
                 
-                // Ignore extremely low and high frequencies
+                // Focus on relevant frequencies for music
                 if (freq > 60 && freq < 5000) {
-                    // Konvertiere Frequenz in Notenwert
+                    // Convert frequency to note index
                     const noteIndex = Math.round(12 * Math.log2(freq / 440) + 69) % 12;
                     
-                    // Magnitude der Frequenz berechnen
+                    // Calculate magnitude
                     let real = 0;
                     let imag = 0;
                     
@@ -250,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Finde den stärksten Grundton
+        // Find the strongest note (root)
         let maxStrength = 0;
         let rootNote = 0;
         
@@ -261,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Dur/Moll-Erkennung - Vergleiche Dur- und Moll-Muster
+        // Major/minor determination
         const majorThird = (rootNote + 4) % 12;
         const minorThird = (rootNote + 3) % 12;
         
@@ -270,68 +296,116 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${noteNames[rootNote]} ${isMajor ? 'Dur' : 'Moll'}`;
     }
 
+    function getCompatibleKeys(key) {
+        // Parse the key
+        const [note, mode] = key.split(' ');
+        const isMajor = mode === 'Dur';
+        
+        const allNotes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        
+        // Find the index of the current note
+        const noteIndex = allNotes.indexOf(note);
+        
+        // Calculate compatible keys
+        let compatibleIndices = [];
+        
+        if (isMajor) {
+            // Relative minor
+            compatibleIndices.push((noteIndex + 9) % 12);
+            // Perfect 4th up
+            compatibleIndices.push((noteIndex + 5) % 12);
+            // Perfect 5th up
+            compatibleIndices.push((noteIndex + 7) % 12);
+        } else {
+            // Relative major
+            compatibleIndices.push((noteIndex + 3) % 12);
+            // Perfect 4th up
+            compatibleIndices.push((noteIndex + 5) % 12);
+            // Perfect 5th up
+            compatibleIndices.push((noteIndex + 7) % 12);
+        }
+        
+        // Create string of compatible keys
+        let compatibleKeys = compatibleIndices.map(index => {
+            const newNote = allNotes[index];
+            const newMode = index === ((noteIndex + 3) % 12) && !isMajor ? 'Dur' : 
+                            index === ((noteIndex + 9) % 12) && isMajor ? 'Moll' : mode;
+            return `${newNote} ${newMode}`;
+        });
+        
+        return compatibleKeys.join(', ');
+    }
+
     function formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
-        return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
     function setupPlayer() {
-        totalTime.textContent = formatTime(audio.duration);
-        currentTime.textContent = '0:00';
-
-        playButton.addEventListener('click', () => {
-            audio.play();
-            playButton.classList.add('hidden');
-            pauseButton.classList.remove('hidden');
-        });
-
-        pauseButton.addEventListener('click', () => {
-            audio.pause();
-            pauseButton.classList.add('hidden');
-            playButton.classList.remove('hidden');
-        });
-
-        audio.addEventListener('timeupdate', () => {
-            if (!isDragging) {
-                const percent = (audio.currentTime / audio.duration) * 100;
-                seekbarFill.style.width = `${percent}%`;
-                seekbarThumb.style.left = `${percent}%`;
-                currentTime.textContent = formatTime(audio.currentTime);
-            }
-        });
-
-        audio.addEventListener('ended', () => {
-            pauseButton.classList.add('hidden');
-            playButton.classList.remove('hidden');
-            seekbarFill.style.width = '0%';
-            seekbarThumb.style.left = '0%';
+        // Update total time display
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            totalTime.textContent = formatTime(audioPlayer.duration);
             currentTime.textContent = '0:00';
         });
-
+        
+        // Set up play/pause functionality
+        playBtn.addEventListener('click', () => {
+            audioPlayer.play();
+            playBtn.classList.add('hidden');
+            pauseBtn.classList.remove('hidden');
+        });
+        
+        pauseBtn.addEventListener('click', () => {
+            audioPlayer.pause();
+            pauseBtn.classList.add('hidden');
+            playBtn.classList.remove('hidden');
+        });
+        
+        // Update time and seekbar
+        audioPlayer.addEventListener('timeupdate', () => {
+            if (!isDragging) {
+                const percent = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+                seekbarProgress.style.width = `${percent}%`;
+                seekbarThumb.style.left = `${percent}%`;
+                currentTime.textContent = formatTime(audioPlayer.currentTime);
+            }
+        });
+        
+        // Handle seekbar interaction
         seekbar.addEventListener('mousedown', (e) => {
             isDragging = true;
             updateSeekPosition(e);
         });
-
+        
         document.addEventListener('mousemove', (e) => {
             if (isDragging) {
                 updateSeekPosition(e);
             }
         });
-
+        
         document.addEventListener('mouseup', () => {
             if (isDragging) {
                 isDragging = false;
-                const percent = parseFloat(seekbarThumb.style.left) / 100;
-                audio.currentTime = percent * audio.duration;
+                const percentAsDecimal = parseFloat(seekbarThumb.style.left) / 100;
+                audioPlayer.currentTime = percentAsDecimal * audioPlayer.duration;
             }
         });
-
+        
+        // Handle direct clicks on seekbar
         seekbar.addEventListener('click', (e) => {
             updateSeekPosition(e);
-            const percent = parseFloat(seekbarThumb.style.left) / 100;
-            audio.currentTime = percent * audio.duration;
+            const percentAsDecimal = parseFloat(seekbarThumb.style.left) / 100;
+            audioPlayer.currentTime = percentAsDecimal * audioPlayer.duration;
+        });
+        
+        // Reset player when finished
+        audioPlayer.addEventListener('ended', () => {
+            pauseBtn.classList.add('hidden');
+            playBtn.classList.remove('hidden');
+            seekbarProgress.style.width = '0%';
+            seekbarThumb.style.left = '0%';
+            currentTime.textContent = '0:00';
         });
     }
 
@@ -339,10 +413,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const rect = seekbar.getBoundingClientRect();
         let position = (e.clientX - rect.left) / rect.width;
         
+        // Clamp between 0 and 1
         position = Math.max(0, Math.min(position, 1));
         
         const percent = position * 100;
-        seekbarFill.style.width = `${percent}%`;
+        seekbarProgress.style.width = `${percent}%`;
         seekbarThumb.style.left = `${percent}%`;
     }
 });
