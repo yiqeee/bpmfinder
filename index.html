@@ -3,114 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musik Analyzer - BPM und Key Detektor</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <title>BeatKey Analyzer</title>
+    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="app-container">
-        <div class="title-section">
-            <h1>Musik Analyzer</h1>
-            <p class="subtitle">Analysiere BPM und Key deiner Songs</p>
-        </div>
+    <div class="container">
+        <header>
+            <h1>BeatKey Analyzer</h1>
+            <p>Analysiere BPM und Tonart deiner Musik</p>
+        </header>
 
-        <div class="card">
-            <div class="card-body">
-                <div id="dropArea" class="upload-area">
-                    <i class="fa-solid fa-music upload-icon"></i>
+        <main>
+            <div class="upload-box">
+                <div id="drop-zone">
+                    <i class="fa-solid fa-music icon-music"></i>
                     <h3>Ziehe deinen Song hierher</h3>
                     <p>oder</p>
-                    <input type="file" id="fileInput" accept="audio/*" style="display: none;">
-                    <button class="btn" id="browseBtn">
-                        <i class="fa-solid fa-folder-open btn-icon"></i>
-                        Datei auswählen
+                    <input type="file" id="file-input" accept="audio/*" hidden>
+                    <button id="file-button" class="button">Datei auswählen</button>
+                    <p id="file-name" class="file-name">Keine Datei ausgewählt</p>
+                </div>
+            </div>
+
+            <div id="loader" class="loader-container">
+                <div class="loader-text">
+                    <span id="analyze-status">Starte Analyse...</span>
+                </div>
+                <div class="loader-bar-container">
+                    <div id="loader-bar" class="loader-bar"></div>
+                </div>
+                <p class="loader-percentage"><span id="loader-percentage">0</span>%</p>
+            </div>
+
+            <div id="player-container" class="player-container">
+                <div class="player-info">
+                    <span id="track-title" class="track-title">Titel</span>
+                    <div class="time">
+                        <span id="current-time">0:00</span> / 
+                        <span id="total-time">0:00</span>
+                    </div>
+                </div>
+                
+                <div class="player-controls">
+                    <button id="play-button" class="play-button">
+                        <i class="fa-solid fa-play"></i>
                     </button>
-                    <p class="file-info" id="fileInfo">Keine Datei ausgewählt</p>
+                    <button id="pause-button" class="pause-button hidden">
+                        <i class="fa-solid fa-pause"></i>
+                    </button>
                 </div>
                 
-                <div class="progress-container" id="progressContainer">
-                    <div class="analyzing-text">
-                        <span id="analyzeStepText">Initialisiere Analyse...</span>
+                <div id="seekbar" class="seekbar">
+                    <div class="seekbar-bg">
+                        <div id="seekbar-fill" class="seekbar-fill"></div>
                     </div>
-                    <div class="progress-wrapper">
-                        <div class="progress-bar" id="progressBar"></div>
-                    </div>
-                    <div class="progress-status">
-                        <span>0%</span>
-                        <span id="progressPercentage">0%</span>
-                    </div>
+                    <div id="seekbar-thumb" class="seekbar-thumb"></div>
                 </div>
                 
-                <div class="audio-controls" id="audioControls">
-                    <div class="audio-player-container">
-                        <div class="custom-audio-player">
-                            <div class="audio-info">
-                                <div class="track-name" id="trackName">Keine Datei ausgewählt</div>
-                                <div class="time-display">
-                                    <span id="currentTime">0:00</span> / 
-                                    <span id="totalTime">0:00</span>
-                                </div>
-                            </div>
-                            
-                            <div class="audio-controls-btns">
-                                <div class="play-btn" id="playBtn">
-                                    <i class="fa-solid fa-play play-icon"></i>
-                                </div>
-                                <div class="pause-btn" id="pauseBtn">
-                                    <i class="fa-solid fa-pause pause-icon"></i>
-                                </div>
-                            </div>
-                            
-                            <div class="seek-bar" id="seekBar">
-                                <div class="seek-bar-bg">
-                                    <div class="seek-bar-progress" id="seekProgress"></div>
-                                </div>
-                                <div class="seek-bar-handle" id="seekHandle"></div>
-                            </div>
-                            
-                            <audio id="audioPlayer" style="display:none;"></audio>
+                <audio id="audio" hidden></audio>
+            </div>
+
+            <div id="results" class="results">
+                <h2>Analyse Ergebnisse</h2>
+                
+                <div class="result-cards">
+                    <div class="result-card">
+                        <div class="result-icon">
+                            <i class="fa-solid fa-gauge-high"></i>
                         </div>
+                        <p class="result-label">Tempo (BPM)</p>
+                        <h3 id="result-bpm" class="result-value">-</h3>
+                        <p class="result-desc">Beats pro Minute</p>
+                    </div>
+                    
+                    <div class="result-card">
+                        <div class="result-icon">
+                            <i class="fa-solid fa-music"></i>
+                        </div>
+                        <p class="result-label">Tonart (Key)</p>
+                        <h3 id="result-key" class="result-value">-</h3>
+                        <p class="result-desc">Harmonische Grundlage</p>
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
         
-        <div class="results" id="results">
-            <div class="results-header">
-                <h2 class="results-title">Analyse Ergebnisse</h2>
-                <p>Diese Ergebnisse basieren auf der Analyse deines Tracks</p>
-            </div>
-            
-            <div class="results-grid">
-                <div class="result-card">
-                    <i class="fa-solid fa-file-audio result-icon"></i>
-                    <div class="result-label">Dateiname</div>
-                    <div class="result-value" id="fileName">-</div>
-                    <div class="result-desc">Name der analysierten Audiodatei</div>
-                </div>
-                
-                <div class="result-card">
-                    <i class="fa-solid fa-gauge-high result-icon"></i>
-                    <div class="result-label">BPM (Tempo)</div>
-                    <div class="result-value" id="bpmResult">-</div>
-                    <div class="result-desc">Beats Pro Minute</div>
-                </div>
-                
-                <div class="result-card">
-                    <i class="fa-solid fa-music result-icon"></i>
-                    <div class="result-label">Key (Tonart)</div>
-                    <div class="result-value" id="keyResult">-</div>
-                    <div class="result-desc">Ermittelte Tonart des Songs</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <p>© 2025 Musik Analyzer</p>
-        </div>
+        <footer>
+            <p>© 2025 BeatKey Analyzer</p>
+        </footer>
     </div>
 
-    <script src="script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aubiojs/0.2.1/aubio.min.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
